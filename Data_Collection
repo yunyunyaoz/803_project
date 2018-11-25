@@ -1,0 +1,39 @@
+"""
+1.0 Initialization
+"""
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import datetime
+pd.core.common.is_list_like = pd.api.types.is_list_like
+from pandas_datareader import data as pdr
+import fix_yahoo_finance as yf
+yf.pdr_override()
+
+"""
+2.0 Get Raw Data
+"""
+stocks = ['BSV','LQD','IGIB','SHY','IVV','PDP','VTI','IXN','IJH','IJR','EMB','EFA','EEM']
+num = len(stocks)
+start = datetime.datetime(2007,12,19) # start w/ the shortest time series
+end = datetime.datetime.today()
+data = pdr.get_data_yahoo(stocks, start=start, end=end) ["Adj Close"]
+
+"""
+3.0 Data Cleaning
+"""
+print('NaN values: \n', np.sum(data.isna(),axis=0))
+print('\nMissing values: \n',np.sum(data.isnull(),axis=0))
+
+"""
+4.0 Data Analysis
+"""
+# 4.1 Plot All Data
+plt.figure()
+data.plot(figsize=(20,10), title='All Assets All Time Daily Price Plot')
+plt.xlabel('ETFs')
+plt.ylabel('Close Price')
+plt.show()
+# plt.savefig('PriceOverview')
+
+

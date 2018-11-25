@@ -28,12 +28,21 @@ print('\nMissing values: \n',np.sum(data.isnull(),axis=0))
 """
 4.0 Data Analysis
 """
-# 4.1 Plot All Data
+# 4.1 Plot All Price Data
 plt.figure()
-data.plot(figsize=(20,10), title='All Assets All Time Daily Price Plot')
-plt.xlabel('ETFs')
-plt.ylabel('Close Price')
+data.plot(figsize=(20,10))
+plt.title('All Assets All Time Daily Price Plot',fontsize=20)
+plt.xlabel('ETFs',fontsize=15)
+plt.ylabel('Close Price',fontsize=15)
 plt.show()
-# plt.savefig('PriceOverview')
 
+# 4.2 Plot All Returns
+fig = plt.figure(figsize=(20,10))   
+for i in range(0,len(stocks)-1):
+    plt.subplot(3,4,i+1)
+    plt.plot(data.pct_change().iloc[:,i],color='#607c8e',linewidth=0.5)
+    plt.title(stocks[i], fontsize=10, style='italic')   
+
+fig.suptitle('Returns of ETFs',fontsize=20) 
+plt.savefig('Returns')
 

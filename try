@@ -1,0 +1,3 @@
+test_window = 'month'
+if test_window == 'month':
+    month_close = close.resample('m').last()

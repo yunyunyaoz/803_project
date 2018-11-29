@@ -46,3 +46,42 @@ for i in range(0,len(stocks)-1):
 fig.suptitle('Returns of ETFs',fontsize=20) 
 plt.savefig('Returns')
 
+
+# Checks for data
+mu = np.mean(ret)*252  # Annualized Mean Returns
+vol = np.std(ret)*np.sqrt(252)  # Annualized Volatilities
+
+# Leverage Bonds
+n_levg = 3
+levg_ret = ret.copy()
+bonds = levg_ret.loc[:,['BSV','LQD','IGIB','SHY','EMB']]
+levg_ret.loc[:,['BSV','LQD','IGIB','SHY','EMB']]= bonds * n_levg
+
+levg_mu = np.mean(levg_ret)*252  # Annualized Mean Returns(After leverage)
+levg_vol = np.std(levg_ret)*np.sqrt(252)  # Annualized Volatilities(After leverage)
+
+# Plots:
+color= ['darkorange' if ETF in ['BSV','LQD','IGIB','SHY','EMB'] else 'steelblue' for ETF in ret.columns]
+plt.scatter(ret.columns, mu, color=color)
+plt.title('Annualized Returns for Stock & Bond ETFs')
+plt.ylim(0, 0.25)
+plt.show()
+plt.scatter(ret.columns, levg_mu, color=color)
+plt.title('Annualized Returns for Stock & Leveraged Bond ETFs')
+plt.ylim(0, 0.25)
+plt.show()
+
+color= ['orange' if ETF in ['BSV','LQD','IGIB','SHY','EMB'] else 'skyblue' for ETF in ret.columns]
+plt.scatter(ret.columns, vol, color=color)
+plt.title('Annualized Volatility for Stock & Bond ETFs')
+plt.show()
+plt.scatter(ret.columns, levg_vol, color=color)
+plt.title('Annualized Volatility for Stock & Leveraged Bond ETFs')
+plt.show()
+
+# Covariance & Correlations
+covMat = levg_ret.cov()
+corrMat = levg_ret.corr()
+
+print('\nCovariance Matrix of Portfolio: \n',covMat)
+print('\nCorrelation Matrix of Portfolio: \n',corrMat)

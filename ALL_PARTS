@@ -142,6 +142,7 @@ def port_40_60():
     
 #-------------------------------------------- Get Data & Parameters ------------------------------------------------
 
+
 import pandas as pd
 import numpy as np
 pd.core.common.is_list_like = pd.api.types.is_list_like
@@ -157,7 +158,7 @@ tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','
 # tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
 close = pd.DataFrame(columns = tickers)
 
-st = datetime.datetime(2007,1,1)
+st = datetime.datetime(2008,1,1)
 end = datetime.datetime(2015,10,31)
 close = pdr.get_data_yahoo(tickers,start = st,end = end)["Adj Close"]
 
@@ -165,6 +166,7 @@ close.dropna(inplace = True)  # Check if there is NA value
 
 return1 = close / close.shift(1) -1
 return1.dropna(inplace=True)
+
 # 3 times leverage for bond ETFs
 n_leverage = 3
 return1[['BSV','LQD','IGIB','SHY','EMB']] *= n_leverage    # leverage for bond ETF
@@ -176,14 +178,14 @@ var = adjust_return.var()
 annual_return = adjust_return.mean()*250
 
 #compare weight
-BlackRock_weight = [0.22,0.12,0.1,0.05,0.19,0.05,0.04,0.04,0.02,0.02,0.08,0.04,0.03]
+# BlackRock_weight = [0.22,0.12,0.1,0.05,0.19,0.05,0.04,0.04,0.02,0.02,0.08,0.04,0.03]
 BlackRock_adjust = [0.22,0.12,0.1,0.05,0.20,0.05,0.05,0.03,0.03,0.08,0.04,0.03]
 
 # portfolio variance
 cov = np.array(cov_matrix)
 
 sigma = 0.4
-Ndays = 250
+Ndays = 252
 
 #--------------------------------------------- BackTest Functions --------------------------------------------------
 
@@ -232,39 +234,44 @@ def cal_VaR(ret,a):
 
 #---------------------------------------- Rolling & Running (Xuan Wang) ------------------------------------------
 
-# optimazation
-test_window = 'month'
-if test_window == 'month':
-    month_close = close.resample('m',closed = 'right').last()
- 
 # *********************************************************************************************************
 # Checked √
 
-# Get rolling basis position
-last_month = 'NA'
+# cmoments: 如果从2007/12/17开始，第一个月的weight和portfolio return只有7天数据，不准确，
+#           so已将数据起始日调整至2008/01/01，以一年的COV matrix作为input，第一个有效的rolling weight为2009年1月。
+# -----------------
+
+## A. Get Rolling Portfolio Positions
+
+# a) Initialize some empty DataFrames to store results
 weight = pd.DataFrame(columns = tickers)
 risk_contribution = pd.DataFrame(columns = tickers)
 sse = pd.DataFrame(columns =['SUM Sq Error'])
 
+# b) Calculate Rolling Weights by Optimization 
+last_month = 0
 for i in range(Ndays,len(adjust_return)):
+    
     date = adjust_return.index[i]   
-    if date.month != last_month:               # Adjust weight monthly          
+    if date.month != last_month:   
         
+        # Covariance Matrix: Rolling Yearly
         rolling_cov = adjust_return.iloc[i-Ndays:i,:].cov()    
+        # Portfolio Sigma
         rolling_sigma = np.sqrt(np.dot(BlackRock_adjust,np.dot(rolling_cov,BlackRock_adjust)))
         
-        #----------------------------------------------------------------
-        current_weight= risk_parity(rolling_sigma,np.array(rolling_cov)) 
+        # Optimaized Risk-Parity Weights: Rolling Monthly 
+        current_weight = risk_parity(rolling_sigma,np.array(rolling_cov)) 
         weight.loc[date] = current_weight
-              
+        
+        # Double Check for Equal Risk Contribution
         risk_contribution.loc[date] = cal_risk_contribution(current_weight,np.array(rolling_cov))
+        # Check for Mininum Sum of Squared Errors
         sse.loc[date] = cal_sum_sq_error(current_weight,np.array(rolling_cov))
-        #---------------------------------------------------------------------------------------------------
-        # check current_weight是否是等风险的weights
-
-    last_month = date.month
     
-# **********************************************************************************************************
+    last_month = date.month   
+
+# *********************************************************************************************************
 
 
 def get_daily_return(weight):

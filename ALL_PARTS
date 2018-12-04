@@ -139,54 +139,7 @@ def port_40_60():
     weight = []
     return weight
     
-    
-#-------------------------------------------- Get Data & Parameters ------------------------------------------------
-
-
-import pandas as pd
-import numpy as np
-pd.core.common.is_list_like = pd.api.types.is_list_like
-import fix_yahoo_finance as yf
-import datetime
-from pandas_datareader import data as pdr      # For download data
-import matplotlib.pyplot as plt
-import scipy.optimize as opt
-
-''' (a) Download data and clean data '''
-yf.pdr_override()
-tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
-# tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
-close = pd.DataFrame(columns = tickers)
-
-st = datetime.datetime(2008,1,1)
-end = datetime.datetime(2015,10,31)
-close = pdr.get_data_yahoo(tickers,start = st,end = end)["Adj Close"]
-
-close.dropna(inplace = True)  # Check if there is NA value
-
-return1 = close / close.shift(1) -1
-return1.dropna(inplace=True)
-
-# 3 times leverage for bond ETFs
-n_leverage = 3
-return1[['BSV','LQD','IGIB','SHY','EMB']] *= n_leverage    # leverage for bond ETF
-adjust_return = return1
-
-cov_matrix = adjust_return.cov()
-corr_matrix = adjust_return.corr()
-var = adjust_return.var()
-annual_return = adjust_return.mean()*250
-
-#compare weight
-# BlackRock_weight = [0.22,0.12,0.1,0.05,0.19,0.05,0.04,0.04,0.02,0.02,0.08,0.04,0.03]
-BlackRock_adjust = [0.22,0.12,0.1,0.05,0.20,0.05,0.05,0.03,0.03,0.08,0.04,0.03]
-
-# portfolio variance
-cov = np.array(cov_matrix)
-
-sigma = 0.4
-Ndays = 252
-
+ 
 #--------------------------------------------- BackTest Functions --------------------------------------------------
 
 from scipy.stats import norm
@@ -231,15 +184,145 @@ def cal_VaR(ret,a):
     mean = np.mean(ret)
     std = np.std(ret)
     return  mean*252 - norm.ppf(1-a)*std*np.sqrt(252)
+   
+    
+    
+#-------------------------------------------- Get Data & Parameters ------------------------------------------------
 
-#---------------------------------------- Rolling & Running (Xuan Wang) ------------------------------------------
+import pandas as pd
+import numpy as np
+pd.core.common.is_list_like = pd.api.types.is_list_like
+import fix_yahoo_finance as yf
+import datetime
+from pandas_datareader import data as pdr      # For download data
+import matplotlib.pyplot as plt
+import scipy.optimize as opt
+
+''' (a) Download data and clean data '''
+yf.pdr_override()
+tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
+# tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
+close = pd.DataFrame(columns = tickers)
+
+st = datetime.datetime(2008,1,1)
+end = datetime.datetime(2015,10,31)
+close = pdr.get_data_yahoo(tickers,start = st,end = end)["Adj Close"]
+
+close.dropna(inplace = True)  # Check if there is NA value
+
+return1 = close / close.shift(1) -1
+return1.dropna(inplace=True)
+
+# 3 times leverage for bond ETFs
+n_leverage = 3
+return1[['BSV','LQD','IGIB','SHY','EMB']] *= n_leverage    # leverage for bond ETF
+adjust_return = return1
+
+cov_matrix = adjust_return.cov()
+corr_matrix = adjust_return.corr()
+var = adjust_return.var()
+annual_return = adjust_return.mean()*250
+
+#compare weight
+# BlackRock_weight = [0.22,0.12,0.1,0.05,0.19,0.05,0.04,0.04,0.02,0.02,0.08,0.04,0.03]
+BlackRock_adjust = np.matrix([0.22,0.12,0.1,0.05,0.20,0.05,0.05,0.03,0.03,0.08,0.04,0.03])
+
+# portfolio variance
+cov = np.array(cov_matrix)
+
+sigma = 0.4
+Ndays = 252
+num = len(tickers)
+
+
+#---------------------------------------- Rolling & Running (Yaoyun) ------------------------------------------
 
 # *********************************************************************************************************
 # Checked √
 
 # cmoments: 如果从2007/12/17开始，第一个月的weight和portfolio return只有7天数据，不准确，
 #           so已将数据起始日调整至2008/01/01，以一年的COV matrix作为input，第一个有效的rolling weight为2009年1月。
-# -----------------
+
+
+## A. Get Rolling Portfolio Positions
+# -------------------------------------------------
+
+# All Rolling Covariance Matrices
+rolling_cov = adjust_return.rolling(Ndays).cov().dropna()
+
+# Only Get the Last 1-Yr-Cov-Mat of Every Month
+rolling_covMats = rolling_cov.groupby(pd.Grouper(freq='M',level=0)).tail(num)
+
+# Dates where we extract Covariance Matrix for Weights Calc (Monthly)
+sigdates = np.unique(rolling_covMats.index.get_level_values('Date'))[:-1] # we don't need the last covariance matrix
+
+# All Dates (Daily) (1 Yr after beginning of data)    
+alldates = adjust_return.iloc[Ndays-1:,].index
+
+# Where Turnover Happens (should == #s Covariance Matrix is extracted == #s Weights Calculated )
+toID = np.diff(np.array(alldates.month))!=0      
+toID = pd.Series(toID, index=alldates[1:])
+
+if sum(toID)!=len(sigdates):
+    print("Error! Turnover times and numbers of covariance matrices obtained don't match.")
+
+"""
+# Additional Checks to Make Sure Time is Aligned
+pd.DataFrame({'TurnOverHappenTime':alldates[1:][toID],'PortSigmaUsed': port_sigmas,
+              'SigmaCalced(1Yr)Until':sigdates}).reset_index(drop=True)    
+
+"""
+
+# B. Calculate Rolling Weights by Optimization 
+# --------------------------------------------------
+ret = pd.Series()
+ret2 = pd.Series()
+
+k = 0 
+#for i in range(0,21):
+for i in range(0,len(toID)):
+    date = toID.index[i]
+
+    if toID[i]==True: # Signal for 调仓
+        
+        # Calculate Portfolio Weights for Current Month:
+        cov_ = np.matrix(rolling_covMats.loc[sigdates[k]]) # Checked √
+        sigma_ = float(np.sqrt(BlackRock_adjust*cov_*BlackRock_adjust.T)) # Checked √
+        weight_ = risk_parity(sigma_,np.array(cov_)) # Checked √
+        
+        """
+        # Double Check for Equal Risk Contribution
+        risks_ = cal_risk_contribution(weight_,np.array(cov_))
+        # Check for Mininum Sum of Squared Errors
+        sse_ = cal_sum_sq_error(current_weight,np.array(rolling_cov))
+        """
+        
+        k += 1
+    
+    # else: Everything is unchanged
+    
+    # Calculate Daily Returns
+    ret1[date] = sum(weight_*adjust_return.loc[date]) # Risk-Parity
+    ret2[date] = sum(np.squeeze(np.asarray(BlackRock_adjust))*adjust_return.loc[date]) # 60/40
+
+
+
+#---------------------------------------- Rolling & Running (Xuan Wang) ------------------------------------------
+
+
+# *********************************************************************************************************
+
+# Checked X
+
+# Comments: 这里有问题，simply用40/60的daily return 和上面的方法有差别，可能用到了未来数据。 运行时先用上面的方法。
+  
+# *********************************************************************************************************
+
+
+"""
+
+BlackRock_adjust = [0.22,0.12,0.1,0.05,0.20,0.05,0.05,0.03,0.03,0.08,0.04,0.03]
+
 
 ## A. Get Rolling Portfolio Positions
 
@@ -271,8 +354,6 @@ for i in range(Ndays,len(adjust_return)):
     
     last_month = date.month   
 
-# *********************************************************************************************************
-
 
 def get_daily_return(weight):
 # 根据权重计算收益率，检查有没有用到未来数据
@@ -297,6 +378,8 @@ ret1 = get_daily_return(weight)
 net_value = np.cumprod(ret1+1)
 net_value.plot()
 weight_4060 = pd.DataFrame([BlackRock_adjust]*len(weight),index = weight.index,columns = weight.columns)
+
+"""
 
 ret2 = get_daily_return(weight_4060)
 net_value2 = np.cumprod(ret2+1)

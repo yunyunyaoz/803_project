@@ -32,7 +32,6 @@ def risk_parity(target_sigma, cov_matrix):
         res = opt.minimize(sum_sq_error, initial_weight, method='SLSQP',constraints=cons)
         return res.x
     
-    return cal_portfolio_weight()
     
     def risk_contribution(weights,cov_matrix):
         pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
@@ -56,7 +55,7 @@ def risk_parity(target_sigma, cov_matrix):
         pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
         return pf_volatility-target_sigma
      
-    
+    return cal_portfolio_weight()
 
 #----------------------------------------- Optimization Functions (Yuzhe) ----------------------------------------------
 '''
@@ -154,8 +153,8 @@ import scipy.optimize as opt
 
 ''' (a) Download data and clean data '''
 yf.pdr_override()
-# tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
-tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
+tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
+# tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
 close = pd.DataFrame(columns = tickers)
 
 st = datetime.datetime(2007,1,1)

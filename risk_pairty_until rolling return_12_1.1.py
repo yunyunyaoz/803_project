@@ -178,11 +178,12 @@ for i in range(len(adjust_return)):
         risk_contribution.loc[date] = cal_risk_contribution(current_weight,np.array(rolling_cov))
         sse.loc[date] = cal_sum_sq_error(current_weight,np.array(rolling_cov))
         #---------------------------------------------------------------------------------------------------
-        
+        # check current_weight是否是等风险的weights
 
     last_month = date.month
     
-def get_daily_return(weight):
+def get_daily_return(weight): 
+    # 根据权重计算收益率，检查有没有用到未来数据
     ret = pd.Series()
     k = 0
     this_month = weight.index[k].month

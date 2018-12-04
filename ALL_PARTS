@@ -59,7 +59,7 @@ def risk_parity(target_sigma, cov_matrix):
     
 
 #----------------------------------------- Optimization Functions (Yuzhe) ----------------------------------------------
-
+'''
 # optimazation
 def risk_parity(sigma,cov):
 
@@ -86,7 +86,7 @@ def risk_parity(sigma,cov):
     x0=np.ones(n)
     res = opt.minimize(func, x0, method='SLSQP',constraints=({'type': 'eq', 'fun': const1},{'type': 'eq', 'fun': const2}))
     return res.x
-
+'''
 def mean_variance(r,r_goal,cov):
     #r is the return of each etfs
     #r_goal is the goal return in the constraint
@@ -188,15 +188,17 @@ Ndays = 250
 
 #--------------------------------------------- BackTest Functions --------------------------------------------------
 
+from scipy.stats import norm
+
 #annualized return(monthly)
 def cal_ann_return(ret):
     #ret the return of the portfolio
-    return np.mean(ret)*12
+    return np.mean(ret)*252
 
 #anualized volatility(monthly)
 def cal_ann_vol(ret):
     # ret the return of the portfolio
-    return np.var(ret)*12
+    return np.var(ret)*252
 
 #market beta(monthly)
 def cal_market_beta(ret,mtk):
@@ -208,38 +210,26 @@ def cal_market_beta(ret,mtk):
 #sharpe ratio
 def cal_sr(ret):
     # ret the return of the portfolio
-    return np.mean(ret)/np.std(ret)
+    return np.mean(ret)/np.std(ret)*np.sqrt(252)
 
 #max_drawdown
 def cal_max_drawdown(ret):
     # ret the return of the portfolio
     net = np.cumprod(ret+1)
-    return max(net)-min(net)
+    maxdraw = 0
+    for i in range(len(net)):
+        maxlocal = (min(net[i:])-net[i])/net[i]
+        if maxlocal < maxdraw:
+            maxdraw = maxlocal
 
-#VaR
+    return maxdraw
+
 def cal_VaR(ret,a):
     #ret is the return of the portfolio
     #a is the significance of the VaR
-    return np.percentile(ret.sort(),a)
-
-#CVaR
-def cal_CVaR(ret,a):
-    #ret is the return of the portfolio
-    #a is the significance of the VaR
-    ret_ad = ret.sort()
-    n = len(ret_ad)
-    ret_ad = ret_ad[0,n*a]
-    return np.mean(ret_ad)
-
-#Turnover
-def cal_Turnover(weight,ret):
-    #weight is matrix of the weights of the portfolio during the sample period, each column is the weights
-    # ret is the return of the portfolio
-    net = np.cumprod(ret + 1)
-    n = len(weight)
-    vary = weight[1:n,:]- weight[0:(n-1),:]
-    return sum(np.dot(vary,net[1:n]))
-
+    mean = np.mean(ret)
+    std = np.std(ret)
+    return  mean*252 - norm.ppf(1-a)*std*np.sqrt(252)
 
 #---------------------------------------- Rolling & Running (Xuan Wang) ------------------------------------------
 
@@ -262,7 +252,7 @@ for i in range(Ndays,len(adjust_return)):
     if date.month != last_month:               # Adjust weight monthly          
         
         rolling_cov = adjust_return.iloc[i-Ndays:i,:].cov()    
-        rolling_sigma = np.dot(BlackRock_adjust,np.dot(rolling_cov,BlackRock_adjust))
+        rolling_sigma = np.sqrt(np.dot(BlackRock_adjust,np.dot(rolling_cov,BlackRock_adjust)))
         
         #----------------------------------------------------------------
         current_weight= risk_parity(rolling_sigma,np.array(rolling_cov)) 
@@ -307,13 +297,13 @@ net_value2 = np.cumprod(ret2+1)
 net_value2.plot()
 
 
-'''
+items = ['sharpe','annual_return','annual_vol','max_drawdown','VaR']
 
-test_cov = cov*250 #annual cov
-test_weight = risk_parity(0.4,test_cov)
-test_rc = cal_risk_contribution(test_weight, test_cov)
-print('test_weight =', test_weight)
-print('test_rc =',test_rc)
-
-'''
-
+sharpe = [ret1.mean()/ret1.std()*np.sqrt(250),ret2.mean()/ret2.std()*np.sqrt(250)]
+annual_return = [cal_ann_return(ret1),cal_ann_return(ret2)]
+annual_vol = [cal_ann_vol(ret1),cal_ann_vol(ret2)]
+#market_beta = [cal_market_beta(ret1),cal_market_beta(ret2)]
+max_drawdown = [cal_max_drawdown(ret1),cal_max_drawdown(ret2)]
+VaR = [cal_VaR(ret1,0.05),cal_VaR(ret2,0.05)]
+backtest_table = pd.DataFrame([sharpe,annual_return,annual_vol,max_drawdown,VaR],\
+                              index=items,columns = ['risk_parity','40-60'])

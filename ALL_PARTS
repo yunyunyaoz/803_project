@@ -154,7 +154,8 @@ import scipy.optimize as opt
 
 ''' (a) Download data and clean data '''
 yf.pdr_override()
-tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
+# tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
+tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
 close = pd.DataFrame(columns = tickers)
 
 st = datetime.datetime(2007,1,1)
@@ -246,16 +247,19 @@ def cal_Turnover(weight,ret):
 test_window = 'month'
 if test_window == 'month':
     month_close = close.resample('m',closed = 'right').last()
-    
+ 
+# *********************************************************************************************************
+# Checked √
+
 # Get rolling basis position
 last_month = 'NA'
 weight = pd.DataFrame(columns = tickers)
 risk_contribution = pd.DataFrame(columns = tickers)
 sse = pd.DataFrame(columns =['SUM Sq Error'])
 
-for i in range(len(adjust_return)):
+for i in range(Ndays,len(adjust_return)):
     date = adjust_return.index[i]   
-    if i>Ndays and date.month != last_month:              # Adjust weight monthly          
+    if date.month != last_month:               # Adjust weight monthly          
         
         rolling_cov = adjust_return.iloc[i-Ndays:i,:].cov()    
         rolling_sigma = np.dot(BlackRock_adjust,np.dot(rolling_cov,BlackRock_adjust))
@@ -271,6 +275,9 @@ for i in range(len(adjust_return)):
 
     last_month = date.month
     
+# **********************************************************************************************************
+
+
 def get_daily_return(weight):
 # 根据权重计算收益率，检查有没有用到未来数据
     ret = pd.Series()

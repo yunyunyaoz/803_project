@@ -249,7 +249,9 @@ if test_window == 'month':
     
 # Get rolling basis position
 last_month = 'NA'
-
+weight = pd.DataFrame(columns = tickers)
+risk_contribution = pd.DataFrame(columns = tickers)
+sse = pd.DataFrame(columns =['SUM Sq Error'])
 
 for i in range(len(adjust_return)):
     date = adjust_return.index[i]   
@@ -307,9 +309,4 @@ print('test_weight =', test_weight)
 print('test_rc =',test_rc)
 
 '''
-
-# Backtest Added dfs
-weight = pd.DataFrame(columns = tickers)
-risk_contribution = pd.DataFrame(columns = tickers)
-sse = pd.DataFrame(columns =['SUM Sq Error'])
 

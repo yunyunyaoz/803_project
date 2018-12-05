@@ -368,29 +368,27 @@ for i in range(0,len(toID)):
     ret1[date] = sum(w_*ret.loc[date]) # Risk-Parity
     ret2[date] = sum(np.squeeze(np.asarray(w_BlackRock))*ret.loc[date]) # 60/40
 
+
 # 7.5 Check Results
 weight
 risk_cont
 sse
 
-plt.figure(figsize=(8,4))
-net_value = np.cumprod(ret1+1)
-net_value.plot()
-net_value2 = np.cumprod(ret2+1)
-#net_value2.plot()
 ret3 = price.IVV[all_dates[0]:].pct_change()
-net_value3 = np.cumprod(ret3+1)
-net_value3.plot()
+port_rets = pd.DataFrame({'Risk Parity':ret1, '60/40': ret2, 'Market Index': ret3}).dropna()
+net_value = np.cumprod(port_rets+1)
 
+plt.figure(figsize=(8,4))
+net_value.plot()
 
 ######
-items = ['sharpe','annual_return','annual_vol','max_drawdown','VaR']
-
-sharpe = [ret1.mean()/ret1.std()*np.sqrt(250),ret2.mean()/ret2.std()*np.sqrt(250)]
-annual_return = [cal_ann_return(ret1),cal_ann_return(ret2)]
-annual_vol = [cal_ann_vol(ret1),cal_ann_vol(ret2)]
+items = ['Sharpe Ratio','Annualized Return','Annualized Volatility','VaR']
+sharpe = port_rets.mean()/port_rets.std()*np.sqrt(250)
+annl_ret = cal_ann_return(port_rets)
+annl_vol = cal_ann_vol(port_rets)
 #market_beta = [cal_market_beta(ret1),cal_market_beta(ret2)]
-max_drawdown = [cal_max_drawdown(ret1),cal_max_drawdown(ret2)]
-VaR = [cal_VaR(ret1,0.05),cal_VaR(ret2,0.05)]
-backtest_table = pd.DataFrame([sharpe,annual_return,annual_vol,max_drawdown,VaR],\
-                              index=items,columns = ['risk_parity','40-60'])
+#max_drawdown = cal_max_drawdown(port_rets)
+VaR = cal_VaR(port_rets,0.05)
+backtest_table = pd.DataFrame([sharpe,annl_ret,annl_vol,VaR],index=items,)
+
+

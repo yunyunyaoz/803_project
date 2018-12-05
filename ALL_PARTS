@@ -327,8 +327,8 @@ BlackRock_adjust = [0.22,0.12,0.1,0.05,0.20,0.05,0.05,0.03,0.03,0.08,0.04,0.03]
 ## A. Get Rolling Portfolio Positions
 
 # a) Initialize some empty DataFrames to store results
-weight = pd.DataFrame(columns = tickers)
-risk_contribution = pd.DataFrame(columns = tickers)
+weight = pd.DataFrame(columns = adjust_return.columns)
+risk_contribution = pd.DataFrame(columns = adjust_return.columns)
 sse = pd.DataFrame(columns =['SUM Sq Error'])
 
 # b) Calculate Rolling Weights by Optimization 

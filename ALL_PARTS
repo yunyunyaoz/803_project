@@ -200,6 +200,7 @@ pd.core.common.is_list_like = pd.api.types.is_list_like
 import fix_yahoo_finance as yf
 import datetime
 from pandas_datareader import data as pdr      # For download data
+yf.pdr_override()
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
 
@@ -209,10 +210,11 @@ import scipy.optimize as opt
 try:
     ret = pd.read_csv('ret.csv',index_col=0)
     price = pd.read_csv('price.csv',index_col=0)
+    ret.index = pd.to_datetime(ret.index)
+    price.index = pd.to_datetime(price.index)
     print('***Data exist.***')
 except:
     print('***Downloading data.***')
-    yf.pdr_override()
     tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
     # tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
     num = len(tickers)

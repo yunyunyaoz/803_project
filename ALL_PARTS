@@ -1,193 +1,3 @@
-#-------------------------------------------Functions (RuiHao) ---------------------------------------------------
-
-#------------------------------ 
-## VALIDATION
-#------------------------------ 
-#cal risk cantribution of each asset
-def cal_risk_contribution(weights,cov_matrix):
-    pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
-    mc = np.dot(cov_matrix, weights) / pf_volatility #marginal contribution
-    rc = np.multiply(mc,weights) #risk_contribution by weight
-    return rc #vector
-
-def cal_sum_sq_error(weights,cov_matrix): # sum squard error bewteen target rc(all equal) and real rc (risk contribution) 
-    pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
-    
-    target_rc = np.ones(len(weights))*(pf_volatility/len(weights))
-    current_rc = cal_risk_contribution(weights,cov_matrix)
-    
-    sse= sum(np.square(current_rc-target_rc))
-    return sse
-    
-#------------------------------    
-## RISK PARITY OPTIMIZATION
-#------------------------------ 
-
-def risk_parity(target_sigma, cov_matrix):
-
-    def cal_portfolio_weight():
-        initial_weight=np.ones(len(cov_matrix))
-    
-        cons=({'type': 'eq', 'fun': constraint1},{'type': 'eq', 'fun': constraint2})
-        res = opt.minimize(sum_sq_error, initial_weight, method='SLSQP',constraints=cons)
-        return res.x
-    
-    
-    def risk_contribution(weights,cov_matrix):
-        pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
-        mc = np.dot(cov_matrix, weights) / pf_volatility #marginal contribution
-        rc = np.multiply(mc,weights) #risk_contribution by weight
-        return rc #vector
-
-    def sum_sq_error(weights): # sum squard error bewteen target rc(all equal) and real rc (risk contribution) 
-        pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
-    
-        target_rc = np.ones(len(weights))*(pf_volatility/len(weights))
-        current_rc = risk_contribution(weights,cov_matrix)
-    
-        sse= sum(np.square(current_rc-target_rc))
-        return sse
- 
-    def constraint1(weights):
-        return np.sum(weights)-1.0
- 
-    def constraint2(weights): #using global variable sigma to set constraint of target pf vol
-        pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
-        return pf_volatility-target_sigma
-     
-    return cal_portfolio_weight()
-
-#----------------------------------------- Optimization Functions (Yuzhe) ----------------------------------------------
-'''
-# optimazation
-def risk_parity(sigma,cov):
-
-    n = len(cov)
-    def func(w):
-        # w is the weight
-        # cov is the covariance matrix
-        par = []
-        n = len(w)
-        num = np.dot(cov, w)
-        den = np.sqrt(np.dot(np.dot(w.T,cov),w))
-        for i in range(n):
-            par += [(w[i]-den**2/(num[i]*n))**2]
-        return sum(par)
-
-    def const1(w):
-        # sigma the std of the portfolio
-        return np.sqrt(np.dot(np.dot(w.T,cov),w))-sigma
-
-    def const2(w):
-        # the sum of weight equal to one
-        return sum(w)-1
-
-    x0=np.ones(n)
-    res = opt.minimize(func, x0, method='SLSQP',constraints=({'type': 'eq', 'fun': const1},{'type': 'eq', 'fun': const2}))
-    return res.x
-'''
-def mean_variance(r,r_goal,cov):
-    #r is the return of each etfs
-    #r_goal is the goal return in the constraint
-    #cov is the covariance matrix of each etfs
-    n = len(cov)
-    def func(w):
-        # w is the weight
-        # cov is the covariance matrix
-        return np.sqrt(np.dot(np.dot(w.T,cov),w))
-
-    def const1(w):
-        # sigma the std of the portfolio
-        return np.dot(r.T,w)-r_goal
-
-    def const2(w):
-        # the sum of weight equal to one
-        return sum(w)-1
-
-    x0=np.ones(n)
-    res = opt.minimize(func, x0, method='SLSQP',constraints=({'type': 'eq', 'fun': const1},{'type': 'eq', 'fun': const2}))
-    return res.x
-
-def equal_weight(r):
-    #r is the return of each etfs
-    n = len(r)
-    res = np.ones(n)*1/n
-    return res
-
-def maximum_sr(r,cov):
-    #r is the return of each etfs
-    # cov is the covariance matrix
-    # rf is the risk free rate
-    n = len(cov)
-    def func(w):
-        # w is the weight
-        # cov is the covariance matrix
-        n = len(w)
-        return -np.dot(r.T,w)/np.sqrt(np.dot(np.dot(w.T, cov), w))
-
-    def const1(w):
-        # the sum of weight equal to one
-        return sum(w) - 1
-
-    x0 = np.ones(n)
-    res = opt.minimize(func, x0, method='SLSQP',
-                       constraints=({'type': 'eq', 'fun': const1}))
-    return res.x
-
-def port_40_60():
-    #we set the weight of 40 60 portfolio here
-    weight = []
-    return weight
-    
- 
-#--------------------------------------------- BackTest Functions --------------------------------------------------
-
-from scipy.stats import norm
-
-#annualized return(monthly)
-def cal_ann_return(ret):
-    #ret the return of the portfolio
-    return np.mean(ret)*252
-
-#anualized volatility(monthly)
-def cal_ann_vol(ret):
-    # ret the return of the portfolio
-    return np.var(ret)*252
-
-#market beta(monthly)
-def cal_market_beta(ret,mtk):
-    # ret the return of the portfolio
-    # the market return under the same period
-    beta = np.cov(ret,mtk)/np.var(mtk)
-    return beta
-
-#sharpe ratio
-def cal_sr(ret):
-    # ret the return of the portfolio
-    return np.mean(ret)/np.std(ret)*np.sqrt(252)
-
-#max_drawdown
-def cal_max_drawdown(ret):
-    # ret the return of the portfolio
-    net = np.cumprod(ret+1)
-    maxdraw = 0
-    for i in range(len(net)):
-        maxlocal = (min(net[i:])-net[i])/net[i]
-        if maxlocal < maxdraw:
-            maxdraw = maxlocal
-
-    return maxdraw
-
-def cal_VaR(ret,a):
-    #ret is the return of the portfolio
-    #a is the significance of the VaR
-    mean = np.mean(ret)
-    std = np.std(ret)
-    return  mean*252 - norm.ppf(1-a)*std*np.sqrt(252)
-   
-    
-    
-    
 #-------------------------------------------- Get Data & Parameters ------------------------------------------------
 # *********  Checked √   **********
 
@@ -207,6 +17,12 @@ import scipy.optimize as opt
 """
 2.0 Get Raw Data
 """
+tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
+st = datetime.datetime(2008,1,1)
+end = datetime.datetime(2015,10,31)
+
+num = len(tickers)
+
 try:
     ret = pd.read_csv('ret.csv',index_col=0)
     price = pd.read_csv('price.csv',index_col=0)
@@ -215,12 +31,7 @@ try:
     print('***Data exist.***')
 except:
     print('***Downloading data.***')
-    tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
-    # tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
-    num = len(tickers)
-
-    st = datetime.datetime(2008,1,1)
-    end = datetime.datetime(2015,10,31)
+        # tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
 
     price = pdr.get_data_yahoo(tickers, start=st, end=end) ["Adj Close"]
     ret = price.pct_change().dropna()
@@ -384,85 +195,8 @@ ret3 = price.IVV[all_dates[0]:].pct_change()
 net_value3 = np.cumprod(ret3+1)
 net_value3.plot()
 
-#---------------------------------------- Rolling & Running (Xuan Wang) ------------------------------------------
 
-
-# *********************************************************************************************************
-
-# Checked X
-
-# Comments: 这里有问题，simply用40/60的daily return 和上面的方法有差别，可能用到了未来数据。 运行时先用上面的方法。
-  
-# *********************************************************************************************************
-
-
-"""
-
-BlackRock_adjust = [0.22,0.12,0.1,0.05,0.20,0.05,0.05,0.03,0.03,0.08,0.04,0.03]
-
-
-## A. Get Rolling Portfolio Positions
-
-# a) Initialize some empty DataFrames to store results
-weight = pd.DataFrame(columns = adjust_return.columns)
-risk_contribution = pd.DataFrame(columns = adjust_return.columns)
-sse = pd.DataFrame(columns =['SUM Sq Error'])
-
-# b) Calculate Rolling Weights by Optimization 
-last_month = 0
-for i in range(Ndays,len(adjust_return)):
-    
-    date = adjust_return.index[i]   
-    if date.month != last_month:   
-        
-        # Covariance Matrix: Rolling Yearly
-        rolling_cov = adjust_return.iloc[i-Ndays:i,:].cov()    
-        # Portfolio Sigma
-        rolling_sigma = np.sqrt(np.dot(BlackRock_adjust,np.dot(rolling_cov,BlackRock_adjust)))
-        
-        # Optimaized Risk-Parity Weights: Rolling Monthly 
-        current_weight = risk_parity(rolling_sigma,np.array(rolling_cov)) 
-        weight.loc[date] = current_weight
-        
-        # Double Check for Equal Risk Contribution
-        risk_contribution.loc[date] = cal_risk_contribution(current_weight,np.array(rolling_cov))
-        # Check for Mininum Sum of Squared Errors
-        sse.loc[date] = cal_sum_sq_error(current_weight,np.array(rolling_cov))
-    
-    last_month = date.month   
-
-
-def get_daily_return(weight):
-# 根据权重计算收益率，检查有没有用到未来数据
-    ret = pd.Series()
-    k = 0
-    this_month = weight.index[k].month
-    for i in range(Ndays,len(adjust_return)):       
-                
-        date = adjust_return.index[i]        # Use the same weight for every month since adjust monthly
-        
-        if date>weight.index[0]:             # Start calculate return when strategy begin
-            if date.month != this_month:
-                k +=1
-                this_month =date.month
-            
-            daily_return = sum(weight.iloc[k,:]*adjust_return.iloc[i,:])
-            ret[date] = daily_return
-    
-    return ret
-
-ret1 = get_daily_return(weight)
-net_value = np.cumprod(ret1+1)
-net_value.plot()
-weight_4060 = pd.DataFrame([BlackRock_adjust]*len(weight),index = weight.index,columns = weight.columns)
-
-"""
-
-ret2 = get_daily_return(weight_4060)
-net_value2 = np.cumprod(ret2+1)
-net_value2.plot()
-
-
+######
 items = ['sharpe','annual_return','annual_vol','max_drawdown','VaR']
 
 sharpe = [ret1.mean()/ret1.std()*np.sqrt(250),ret2.mean()/ret2.std()*np.sqrt(250)]

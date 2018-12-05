@@ -206,16 +206,27 @@ import scipy.optimize as opt
 """
 2.0 Get Raw Data
 """
-yf.pdr_override()
-tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
-# tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
-num = len(tickers)
+try:
+    ret = pd.read_csv('ret.csv',index_col=0)
+    price = pd.read_csv('price.csv',index_col=0)
+    print('***Data exist.***')
+except:
+    print('***Downloading data.***')
+    yf.pdr_override()
+    tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
+    # tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
+    num = len(tickers)
 
-st = datetime.datetime(2008,1,1)
-end = datetime.datetime(2015,10,31)
+    st = datetime.datetime(2008,1,1)
+    end = datetime.datetime(2015,10,31)
 
-price = pdr.get_data_yahoo(tickers, start=st, end=end) ["Adj Close"]
-ret = price.pct_change().dropna()
+    price = pdr.get_data_yahoo(tickers, start=st, end=end) ["Adj Close"]
+    ret = price.pct_change().dropna()
+    
+    #--------------SAVING DATA------------------------
+    print('***Saving Data.***')
+    ret.to_csv('ret.csv')
+    price.to_csv('price.csv')
 
 """
 3.0 Data Cleaning
@@ -322,11 +333,13 @@ if sum(toID)!=len(cov_dates):
     print("Error! Turnover times and numbers of covariance matrices obtained don't match.")
 
 
-
 # 7.4 Calculate Rolling Portfolio Positions & Daily Returns 
 # ----------------------------------------------------------
 ret1 = pd.Series()
 ret2 = pd.Series()
+weight = pd.DataFrame(columns = ret.columns)
+risk_cont = pd.DataFrame(columns = ret.columns)
+sse = pd.DataFrame(columns =['SUM Sq Error'])
 
 k = 0 
 #for i in range(0,21):
@@ -339,13 +352,13 @@ for i in range(0,len(toID)):
         cov_ = np.matrix(month_covMats.loc[cov_dates[k]]) # Checked √
         sigma_ = float(np.sqrt(w_BlackRock*cov_*w_BlackRock.T)) # Checked √
         w_ = risk_parity(sigma_,np.array(cov_)) # Checked √
+        weight.loc[date] = w_
         
-        """
         # Double Check for Equal Risk Contribution
-        risks_ = cal_risk_contribution(w_,np.array(cov_))
+        risk_cont.loc[date] = cal_risk_contribution(w_,np.array(cov_))
         # Check for Mininum Sum of Squared Errors
-        sse_ = cal_sum_sq_error(w_,np.array(cov_))
-        """
+        sse.loc[date] = cal_sum_sq_error(w_,np.array(cov_))
+        
         
         k += 1
     
@@ -354,6 +367,16 @@ for i in range(0,len(toID)):
     # Calculate Daily Returns
     ret1[date] = sum(w_*ret.loc[date]) # Risk-Parity
     ret2[date] = sum(np.squeeze(np.asarray(w_BlackRock))*ret.loc[date]) # 60/40
+
+# 7.5 Check Results
+weight
+risk_cont
+sse
+
+net_value = np.cumprod(ret1+1)
+net_value.plot()
+net_value2 = np.cumprod(ret2+1)
+net_value2.plot()
 
 
 #---------------------------------------- Rolling & Running (Xuan Wang) ------------------------------------------

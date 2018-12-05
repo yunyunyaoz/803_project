@@ -1,3 +1,190 @@
+#-------------------------------------------Functions (RuiHao) ---------------------------------------------------
+
+#------------------------------ 
+## VALIDATION
+#------------------------------ 
+#cal risk cantribution of each asset
+def cal_risk_contribution(weights,cov_matrix):
+    pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
+    mc = np.dot(cov_matrix, weights) / pf_volatility #marginal contribution
+    rc = np.multiply(mc,weights) #risk_contribution by weight
+    return rc #vector
+
+def cal_sum_sq_error(weights,cov_matrix): # sum squard error bewteen target rc(all equal) and real rc (risk contribution) 
+    pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
+    
+    target_rc = np.ones(len(weights))*(pf_volatility/len(weights))
+    current_rc = cal_risk_contribution(weights,cov_matrix)
+    
+    sse= sum(np.square(current_rc-target_rc))
+    return sse
+    
+#------------------------------    
+## RISK PARITY OPTIMIZATION
+#------------------------------ 
+
+def risk_parity(target_sigma, cov_matrix):
+
+    def cal_portfolio_weight():
+        initial_weight=np.ones(len(cov_matrix))
+    
+        cons=({'type': 'eq', 'fun': constraint1},{'type': 'eq', 'fun': constraint2})
+        res = opt.minimize(sum_sq_error, initial_weight, method='SLSQP',constraints=cons)
+        return res.x
+    
+    
+    def risk_contribution(weights,cov_matrix):
+        pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
+        mc = np.dot(cov_matrix, weights) / pf_volatility #marginal contribution
+        rc = np.multiply(mc,weights) #risk_contribution by weight
+        return rc #vector
+
+    def sum_sq_error(weights): # sum squard error bewteen target rc(all equal) and real rc (risk contribution) 
+        pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
+    
+        target_rc = np.ones(len(weights))*(pf_volatility/len(weights))
+        current_rc = risk_contribution(weights,cov_matrix)
+    
+        sse= sum(np.square(current_rc-target_rc))
+        return sse
+ 
+    def constraint1(weights):
+        return np.sum(weights)-1.0
+ 
+    def constraint2(weights): #using global variable sigma to set constraint of target pf vol
+        pf_volatility = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
+        return pf_volatility-target_sigma
+     
+    return cal_portfolio_weight()
+
+#----------------------------------------- Optimization Functions (Yuzhe) ----------------------------------------------
+'''
+# optimazation
+def risk_parity(sigma,cov):
+
+    n = len(cov)
+    def func(w):
+        # w is the weight
+        # cov is the covariance matrix
+        par = []
+        n = len(w)
+        num = np.dot(cov, w)
+        den = np.sqrt(np.dot(np.dot(w.T,cov),w))
+        for i in range(n):
+            par += [(w[i]-den**2/(num[i]*n))**2]
+        return sum(par)
+
+    def const1(w):
+        # sigma the std of the portfolio
+        return np.sqrt(np.dot(np.dot(w.T,cov),w))-sigma
+
+    def const2(w):
+        # the sum of weight equal to one
+        return sum(w)-1
+
+    x0=np.ones(n)
+    res = opt.minimize(func, x0, method='SLSQP',constraints=({'type': 'eq', 'fun': const1},{'type': 'eq', 'fun': const2}))
+    return res.x
+'''
+def mean_variance(r,r_goal,cov):
+    #r is the return of each etfs
+    #r_goal is the goal return in the constraint
+    #cov is the covariance matrix of each etfs
+    n = len(cov)
+    def func(w):
+        # w is the weight
+        # cov is the covariance matrix
+        return np.sqrt(np.dot(np.dot(w.T,cov),w))
+
+    def const1(w):
+        # sigma the std of the portfolio
+        return np.dot(r.T,w)-r_goal
+
+    def const2(w):
+        # the sum of weight equal to one
+        return sum(w)-1
+
+    x0=np.ones(n)
+    res = opt.minimize(func, x0, method='SLSQP',constraints=({'type': 'eq', 'fun': const1},{'type': 'eq', 'fun': const2}))
+    return res.x
+
+def equal_weight(r):
+    #r is the return of each etfs
+    n = len(r)
+    res = np.ones(n)*1/n
+    return res
+
+def maximum_sr(r,cov):
+    #r is the return of each etfs
+    # cov is the covariance matrix
+    # rf is the risk free rate
+    n = len(cov)
+    def func(w):
+        # w is the weight
+        # cov is the covariance matrix
+        n = len(w)
+        return -np.dot(r.T,w)/np.sqrt(np.dot(np.dot(w.T, cov), w))
+
+    def const1(w):
+        # the sum of weight equal to one
+        return sum(w) - 1
+
+    x0 = np.ones(n)
+    res = opt.minimize(func, x0, method='SLSQP',
+                       constraints=({'type': 'eq', 'fun': const1}))
+    return res.x
+
+def port_40_60():
+    #we set the weight of 40 60 portfolio here
+    weight = []
+    return weight
+    
+#--------------------------------------------- BackTest Functions --------------------------------------------------
+
+from scipy.stats import norm
+
+#annualized return(monthly)
+def cal_ann_return(ret):
+    #ret the return of the portfolio
+    return np.mean(ret)*252
+
+#anualized volatility(monthly)
+def cal_ann_vol(ret):
+    # ret the return of the portfolio
+    return np.var(ret)*252
+
+#market beta(monthly)
+def cal_market_beta(ret,mtk):
+    # ret the return of the portfolio
+    # the market return under the same period
+    beta = np.cov(ret,mtk)/np.var(mtk)
+    return beta
+
+#sharpe ratio
+def cal_sr(ret):
+    # ret the return of the portfolio
+    return np.mean(ret)/np.std(ret)*np.sqrt(252)
+
+#max_drawdown
+def cal_max_drawdown(ret):
+    # ret the return of the portfolio
+    net = np.cumprod(ret+1)
+    maxdraw = 0
+    for i in range(len(net)):
+        maxlocal = (min(net[i:])-net[i])/net[i]
+        if maxlocal < maxdraw:
+            maxdraw = maxlocal
+
+    return maxdraw
+
+def cal_VaR(ret,a):
+    #ret is the return of the portfolio
+    #a is the significance of the VaR
+    mean = np.mean(ret)
+    std = np.std(ret)
+    return  mean*252 - norm.ppf(1-a)*std*np.sqrt(252)
+
+
 #-------------------------------------------- Get Data & Parameters ------------------------------------------------
 # *********  Checked √   **********
 

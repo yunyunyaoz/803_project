@@ -342,9 +342,9 @@ for i in range(0,len(toID)):
         
         """
         # Double Check for Equal Risk Contribution
-        risks_ = cal_risk_contribution(weight_,np.array(cov_))
+        risks_ = cal_risk_contribution(w_,np.array(cov_))
         # Check for Mininum Sum of Squared Errors
-        sse_ = cal_sum_sq_error(current_weight,np.array(rolling_cov))
+        sse_ = cal_sum_sq_error(w_,np.array(cov_))
         """
         
         k += 1

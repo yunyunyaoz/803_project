@@ -375,11 +375,14 @@ weight
 risk_cont
 sse
 
+plt.figure(figsize=(8,4))
 net_value = np.cumprod(ret1+1)
 net_value.plot()
 net_value2 = np.cumprod(ret2+1)
-net_value2.plot()
-
+#net_value2.plot()
+ret3 = price.IVV[all_dates[0]:].pct_change()
+net_value3 = np.cumprod(ret3+1)
+net_value3.plot()
 
 #---------------------------------------- Rolling & Running (Xuan Wang) ------------------------------------------
 

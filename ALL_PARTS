@@ -187,8 +187,13 @@ def cal_VaR(ret,a):
    
     
     
+    
 #-------------------------------------------- Get Data & Parameters ------------------------------------------------
+# *********  Checked √   **********
 
+"""
+1.0 Initialization
+"""
 import pandas as pd
 import numpy as np
 pd.core.common.is_list_like = pd.api.types.is_list_like
@@ -198,84 +203,129 @@ from pandas_datareader import data as pdr      # For download data
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
 
-''' (a) Download data and clean data '''
+"""
+2.0 Get Raw Data
+"""
 yf.pdr_override()
 tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
 # tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
-close = pd.DataFrame(columns = tickers)
+num = len(tickers)
 
 st = datetime.datetime(2008,1,1)
 end = datetime.datetime(2015,10,31)
-close = pdr.get_data_yahoo(tickers,start = st,end = end)["Adj Close"]
 
-close.dropna(inplace = True)  # Check if there is NA value
+price = pdr.get_data_yahoo(tickers, start=st, end=end) ["Adj Close"]
+ret = price.pct_change().dropna()
 
-return1 = close / close.shift(1) -1
-return1.dropna(inplace=True)
+"""
+3.0 Data Cleaning
+"""
+print('NaN values: \n', np.sum(price.isna(),axis=0))
+print('\nMissing values: \n',np.sum(price.isnull(),axis=0))
 
-# 3 times leverage for bond ETFs
-n_leverage = 3
-return1[['BSV','LQD','IGIB','SHY','EMB']] *= n_leverage    # leverage for bond ETF
-adjust_return = return1
+"""
+4.0 Data Analysis
+"""
+# 4.1 Plot All Price Data
+plt.figure()
+price.plot(figsize=(20,10))
+plt.title('All Assets All Time Daily Price Plot',fontsize=20)
+plt.xlabel('ETFs',fontsize=15)
+plt.ylabel('Close Price',fontsize=15)
+plt.show()
+# plt.savefig('PriceOverview')
 
-cov_matrix = adjust_return.cov()
-corr_matrix = adjust_return.corr()
-var = adjust_return.var()
-annual_return = adjust_return.mean()*250
+# 4.2 Plot All Returns
+#fig = plt.figure(figsize=(20,10))
+   
+#for i in range(0,len(tickers)):
+#    plt.subplot(3,4,i+1)
+#    plt.plot(ret.iloc[:,i],color='#607c8e',linewidth=0.5)
+#    plt.title(tickers[i], fontsize=10, style='italic')   
 
-#compare weight
-# BlackRock_weight = [0.22,0.12,0.1,0.05,0.19,0.05,0.04,0.04,0.02,0.02,0.08,0.04,0.03]
-BlackRock_adjust = np.matrix([0.22,0.12,0.1,0.05,0.20,0.05,0.05,0.03,0.03,0.08,0.04,0.03])
+#fig.suptitle('Returns of ETFs',fontsize=20) 
+#plt.savefig('Returns')
+#plt.show()
 
-# portfolio variance
-cov = np.array(cov_matrix)
+"""
+5. Properties of Data
+"""
+# 5.1 Mean & Volatility
+mu = np.mean(ret)*252  # Annualized Mean Returns
+vol = np.std(ret)*np.sqrt(252)  # Annualized Volatilities
 
-sigma = 0.4
-Ndays = 252
-num = len(tickers)
+# 5.2 Plots:
+bonds = ['BSV','LQD','IGIB','SHY','EMB']
+color= ['orange' if ETF in bonds else 'skyblue' for ETF in ret.columns]
+plt.scatter(ret.columns, vol, color=color)
+plt.title('Annualized Volatility for Stock & Bond ETFs')
+plt.show()
 
+# 5.3 Leverage Bonds
+n_levg = 3
+ret[bonds] *= n_levg 
+
+# 5.4 Leveraged Mean & Volatility
+mu_levg = np.mean(ret)*252  # Annualized Mean Returns(After leverage)
+vol_levg = np.std(ret)*np.sqrt(252)  # Annualized Volatilities(After leverage)
+
+plt.scatter(ret.columns, vol_levg, color=color)
+plt.title('Annualized Volatility for Stock & Leveraged Bond ETFs')
+plt.show()
+
+
+"""
+6. Cross-Assets Properties of Data
+"""
+# Covariance & Correlations
+covMat = ret.cov()
+corrMat = ret.corr()
+print('\nCovariance Matrix of Portfolio: \n',covMat)
+print('\nCorrelation Matrix of Portfolio: \n',corrMat)
 
 #---------------------------------------- Rolling & Running (Yaoyun) ------------------------------------------
-
-# *********************************************************************************************************
-# Checked √
+# *********  Checked √   **********
 
 # cmoments: 如果从2007/12/17开始，第一个月的weight和portfolio return只有7天数据，不准确，
 #           so已将数据起始日调整至2008/01/01，以一年的COV matrix作为input，第一个有效的rolling weight为2009年1月。
 
 
-## A. Get Rolling Portfolio Positions
-# -------------------------------------------------
+"""
+7. Calculate Optimal Portolio Weights/Positions
+"""
+# 7.1 Initialize Parameters
+Ndays = 252
+w_BlackRock = np.matrix([0.22,0.12,0.1,0.05,0.20,0.05,0.05,0.03,0.03,0.08,0.04,0.03])
+
+
+# 7.2 Get 1-Yr-Rolling Portfolio Covariance Matrices
+# ------------------------------------------------------------
 
 # All Rolling Covariance Matrices
-rolling_cov = adjust_return.rolling(Ndays).cov().dropna()
+all_covMats = ret.rolling(Ndays).cov().dropna()
 
 # Only Get the Last 1-Yr-Cov-Mat of Every Month
-rolling_covMats = rolling_cov.groupby(pd.Grouper(freq='M',level=0)).tail(num)
+month_covMats = all_covMats.groupby(pd.Grouper(freq='M',level=0)).tail(num)
 
 # Dates where we extract Covariance Matrix for Weights Calc (Monthly)
-sigdates = np.unique(rolling_covMats.index.get_level_values('Date'))[:-1] # we don't need the last covariance matrix
+cov_dates = np.unique(month_covMats.index.get_level_values('Date'))[:-1] # we don't need the last covariance matrix
 
 # All Dates (Daily) (1 Yr after beginning of data)    
-alldates = adjust_return.iloc[Ndays-1:,].index
+all_dates = ret.iloc[Ndays-1:,].index
 
 # Where Turnover Happens (should == #s Covariance Matrix is extracted == #s Weights Calculated )
-toID = np.diff(np.array(alldates.month))!=0      
-toID = pd.Series(toID, index=alldates[1:])
+toID = np.diff(np.array(all_dates.month))!=0      
+toID = pd.Series(toID, index=all_dates[1:])
 
-if sum(toID)!=len(sigdates):
+# 7.3 Safty Checks
+if sum(toID)!=len(cov_dates):
     print("Error! Turnover times and numbers of covariance matrices obtained don't match.")
 
-"""
-# Additional Checks to Make Sure Time is Aligned
-pd.DataFrame({'TurnOverHappenTime':alldates[1:][toID],'PortSigmaUsed': port_sigmas,
-              'SigmaCalced(1Yr)Until':sigdates}).reset_index(drop=True)    
 
-"""
 
-# B. Calculate Rolling Weights by Optimization 
-# --------------------------------------------------
-ret = pd.Series()
+# 7.4 Calculate Rolling Portfolio Positions & Daily Returns 
+# ----------------------------------------------------------
+ret1 = pd.Series()
 ret2 = pd.Series()
 
 k = 0 
@@ -286,9 +336,9 @@ for i in range(0,len(toID)):
     if toID[i]==True: # Signal for 调仓
         
         # Calculate Portfolio Weights for Current Month:
-        cov_ = np.matrix(rolling_covMats.loc[sigdates[k]]) # Checked √
-        sigma_ = float(np.sqrt(BlackRock_adjust*cov_*BlackRock_adjust.T)) # Checked √
-        weight_ = risk_parity(sigma_,np.array(cov_)) # Checked √
+        cov_ = np.matrix(month_covMats.loc[cov_dates[k]]) # Checked √
+        sigma_ = float(np.sqrt(w_BlackRock*cov_*w_BlackRock.T)) # Checked √
+        w_ = risk_parity(sigma_,np.array(cov_)) # Checked √
         
         """
         # Double Check for Equal Risk Contribution
@@ -302,9 +352,8 @@ for i in range(0,len(toID)):
     # else: Everything is unchanged
     
     # Calculate Daily Returns
-    ret1[date] = sum(weight_*adjust_return.loc[date]) # Risk-Parity
-    ret2[date] = sum(np.squeeze(np.asarray(BlackRock_adjust))*adjust_return.loc[date]) # 60/40
-
+    ret1[date] = sum(w_*ret.loc[date]) # Risk-Parity
+    ret2[date] = sum(np.squeeze(np.asarray(w_BlackRock))*ret.loc[date]) # 60/40
 
 
 #---------------------------------------- Rolling & Running (Xuan Wang) ------------------------------------------

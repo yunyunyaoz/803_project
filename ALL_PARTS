@@ -188,7 +188,6 @@ def cal_VaR(rets,a):
 
 
 
-
 #-------------------------------------------- Get Data & Parameters ------------------------------------------------
 # *********  Checked √   **********
 # Ideas:
@@ -217,14 +216,17 @@ from scipy.stats import norm
 # 2.1 Parameters
 
 # Alphabetically Ordered Tickers & Weights
-tickers = ['BSV','EEM','EFA','EMB','IGIB','IJH','IJR','IVV','IXN','LQD','PDP','SHY','VTI']
-w_BlackRock = np.matrix([0.22,0.03,0.04,0.08,0.1,0.02,0.02,0.19,0.04,0.12,0.05,0.05,0.04])
-bonds = ['BSV','LQD','IGIB','SHY','EMB']
+#tickers = ['BSV','EEM','EFA','EMB','IGIB','IJH','IJR','IVV','IXN','LQD','PDP','SHY','VTI']
+#w_BlackRock = np.matrix([0.22,0.03,0.04,0.08,0.1,0.02,0.02,0.19,0.04,0.12,0.05,0.05,0.04])
+#bonds = ['BSV','LQD','IGIB','SHY','EMB']
 
 # 2.1.1 Short Portfolio
-# bonds = ['BSV','LQD','IGIB','SHY','EMB']
-# tickers = ['BSV','EEM','EFA','EMB','IGIB','IVV','IXN','LQD','SHY']
-# w_BlackRock = np.matrix([0.22,0.03,0.04,0.08,0.1,0.02,0.02,0.19,0.04,0.12,0.05,0.05,0.04])
+bonds = ['BSV','LQD','IGIB','EMB']
+tickers = ['BSV','EEM','EFA','EMB','IGIB','IVV','IXN','LQD','PDP']
+w_BlackRock = np.matrix([0.22,0.03,0.04,0.08,0.15,0.27,0.04,0.12,0.05])
+# sum(w_BlackRock) # weights check
+
+
 
 st = datetime.datetime(2008,1,1)
 end = datetime.datetime(2015,10,31)
@@ -395,27 +397,32 @@ for i in range(0,len(toID)):
     ret1[date] = sum(w_*ret.loc[date]) # Risk-Parity
     ret2[date] = sum(np.squeeze(np.asarray(w_BlackRock))*ret.loc[date]) # 60/40
 
-# 7.5 Check Results
+"""
+8. Results
+"""
+# 8.1 Check Optimization Results
 weight
 risk_cont
 sse
 
-ret3 = price.IVV[all_dates[0]:].pct_change()
+# 8.2 Present Daily Returns & Net Values
+mkt_ret = price.IVV[all_dates[0]:].pct_change()
 
-port_rets = pd.DataFrame({'Risk Parity':ret1, '60/40': ret2, 'Market Index': ret3}).dropna()
+port_rets = pd.DataFrame({'Risk Parity':ret1, '60/40': ret2, 'Market Index': mkt_ret}).dropna()
 net_value = np.cumprod(port_rets+1)
 
+# Net Value Plot:
 plt.figure(figsize=(8,4))
 net_value.plot()
 
-######
-items = ['Sharpe Ratio','Annualized Return','Annualized Volatility','Beta','Max Drawdown','VaR']
+# 8.3 Back Test Parameters
+params = ['Sharpe Ratio','Annualized Return','Annualized Volatility','Beta','Max Drawdown','VaR']
 sharpe = cal_sharpe_ratio(port_rets)
 annl_ret = cal_ann_return(port_rets)
 annl_vol = cal_ann_vol(port_rets)
 beta = cal_market_beta(port_rets,'Market Index')
 max_drawdown = cal_max_drawdown(port_rets)
 VaR = cal_VaR(port_rets,0.05)
-backtest_table = pd.DataFrame([sharpe,annl_ret,annl_vol,beta, max_drawdown, VaR],index=items)
+backtest_table = pd.DataFrame([sharpe,annl_ret,annl_vol,beta, max_drawdown, VaR], index=params)
 
 

@@ -140,52 +140,77 @@ def port_40_60():
     return weight
     
 #--------------------------------------------- BackTest Functions --------------------------------------------------
-# ret: return of the portfolio
-
-#Calculate Annualized Return(Daily)
-def cal_ann_return(rets):
-    return np.mean(rets)*252
-
-# Calculate annualized volatility(Daily)
-def cal_ann_vol(rets):
-    return np.sqrt(np.var(rets)*252)
-
-# Calculate Market Beta()
-def cal_market_beta(rets,mkt_ticker):
-    # mkt_ticker(string): tickerof market return under the same period as ret
+# Parameters Input:
+    # rets_df(DataFrame): returns of the portfolios
+    # mkt_ticker(string): ticker of market index
+    # a(float): significance level of the VaR
+# Member Functions:
+    # .summary(): Calculate All Parameters & Summarize into a DataFrame  
+    # .cal_ann_return(): Calculate Annualized Return(Daily)
+    # .cal_ann_vol(): Calculate annualized volatility(Daily)
+    # .cal_sharpe_ratio(): Sharpe Ratio
+    # .cal_market_beta(): Calculate Market Beta
+    # .cal_max_drawdown(): Max Drawdown
+    # .cal_VaR(): Value-at-Risk
+#--------------------------------------------------------------------------------------------------------------------
     
-    mkt_var = np.var(rets[mkt_ticker])
-    cov = pd.Series({symbol: rets[mkt_ticker].cov(rets[symbol]) for symbol in rets })
-    return cov/mkt_var
-
-#sharpe ratio
-def cal_sharpe_ratio(rets):
-    return np.mean(rets)/np.std(rets)*np.sqrt(252)
-
-#max_drawdown
-def cal_max_drawdown(rets):
+class BackTest:   
     
-    net_vals = np.cumprod(rets+1)
-    max_drawdown = []
-    
-    for col in list(net_vals):
-        net = net_vals[col]
-        maxdraw = 0
-        for i in range(len(net)):
-            maxlocal = (min(net[i:])-net[i])/net[i]
-            if maxlocal < maxdraw:
-                maxdraw = maxlocal
-        max_drawdown.append(maxdraw)
+    def __init__(self,rets_df,mkt_ticker,a):
+        self.np = __import__('numpy')
+        self.pd = __import__('pandas')
+        self.sc = __import__('scipy.stats')
+        self.rets = rets_df
+        self.mkt = mkt_ticker
+        self.a = a
+        print("Back Test is initialized.")
         
-    return pd.Series(max_drawdown, index=rets.columns)
+    def cal_ann_return(self):
+        return self.rets.mean()*252
 
+    def cal_ann_vol(self):
+        return self.np.sqrt(self.rets.var()*252)
+    
+    def cal_sharpe_ratio(self):
+        return self.np.sqrt(252)*self.rets.mean()/self.rets.std()
 
-def cal_VaR(rets,a):
-    #a is the significance of the VaR
-    mean = np.mean(rets)
-    std = np.std(rets)
-    return  mean*252 - norm.ppf(1-a)*std*np.sqrt(252)
-
+    def cal_market_beta(self):
+        mkt_var = self.np.var(self.rets[self.mkt])
+        cov = self.pd.Series({symbol: self.rets[self.mkt].cov(self.rets[symbol]) for symbol in self.rets })
+        return cov/mkt_var
+    
+    def cal_max_drawdown(self):
+        net_vals = self.np.cumprod(self.rets+1)
+        self.max_drawdown = []
+    
+        for col in list(net_vals):
+            net = net_vals[col]
+            maxdraw = 0
+            for i in range(len(net)):
+                maxlocal = (min(net[i:])-net[i])/net[i]
+                if maxlocal < maxdraw:
+                    maxdraw = maxlocal
+            self.max_drawdown.append(maxdraw)
+        
+        return pd.Series(self.max_drawdown, index=self.rets.columns)
+         
+    def cal_VaR(self):
+        mean = self.np.mean(self.rets)
+        std = self.np.std(self.rets)
+        return mean*252 - self.sc.stats.norm.ppf(1-self.a)*std*self.np.sqrt(252)
+        
+    def summary(self):
+        print("Running Back Test:")
+        ann_ret = self.cal_ann_return()
+        ann_vol = self.cal_ann_vol()
+        sharpe = self.cal_sharpe_ratio()
+        beta = self.cal_market_beta()
+        max_drawdown = self.cal_max_drawdown()
+        VaR = self.cal_VaR()
+        
+        params = ['Annualized Return','Annualized Volatility','Sharpe Ratio','Beta','Max Drawdown','VaR'] 
+        self.summ_df = pd.DataFrame([ann_ret,ann_vol,sharpe,beta,max_drawdown,VaR],index=params)
+        return self.summ_df
 
 
 #-------------------------------------------- Get Data & Parameters ------------------------------------------------
@@ -208,7 +233,6 @@ from pandas_datareader import data as pdr      # For download data
 yf.pdr_override()
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
-from scipy.stats import norm
 
 """
 2.0 Get Raw Data
@@ -335,10 +359,7 @@ print('\nCorrelation Matrix of Portfolio: \n',corrMat)
 """
 7. Calculate Optimal Portolio Weights/Positions
 """
-# 7.1 Initialize Parameters
-
-
-# 7.2 Get 1-Yr-Rolling Portfolio Covariance Matrices
+# 7.1 Get 1-Yr-Rolling Portfolio Covariance Matrices
 # ------------------------------------------------------------
 
 # All Rolling Covariance Matrices
@@ -357,48 +378,47 @@ all_dates = ret.iloc[Ndays-1:,].index
 toID = np.diff(np.array(all_dates.month))!=0      
 toID = pd.Series(toID, index=all_dates[1:])
 
-# 7.3 Safty Checks
+# 7.2 Safty Checks
 if sum(toID)!=len(cov_dates):
     print("Error! Turnover times and numbers of covariance matrices obtained don't match.")
 
 
-# 7.4 Calculate Rolling Portfolio Positions & Daily Returns 
+# 7.3 Calculate Rolling Portfolio Positions & Daily Returns 
 # ----------------------------------------------------------
-ret1 = pd.Series()
-ret2 = pd.Series()
-weight = pd.DataFrame(columns = ret.columns)
-risk_cont = pd.DataFrame(columns = ret.columns)
-sse = pd.DataFrame(columns =['SUM Sq Error'])
+# 7.3.1 Initialize Some Variables to Store Results
+ret1 = pd.Series() # Risk Parity Portfolio Returns
+ret2 = pd.Series() # 60/40 Portfolio Returns
+weight = pd.DataFrame(columns = ret.columns) # Risk Parity Portfolio Weights
+risk_cont = pd.DataFrame(columns = ret.columns) # Risk Parity Portfolio Risk Contributions
+sse = pd.DataFrame(columns =['SUM Sq Error']) # Risk Parity Portfolio Optimization Sum of Squared Errors
 
 k = 0 
-#for i in range(0,21):
 for i in range(0,len(toID)):
     date = toID.index[i]
 
     if toID[i]==True: # Signal for 调仓
         
-        # Calculate Portfolio Weights for Current Month:
+        # 7.3.2 Calculate Portfolio Weights for Current Month:
         cov_ = np.matrix(month_covMats.loc[cov_dates[k]]) # Checked √
         sigma_ = float(np.sqrt(w_BlackRock*cov_*w_BlackRock.T)) # Checked √
         w_ = risk_parity(sigma_,np.array(cov_)) # Checked √
+        
+        # 7.3.3 Store Results
         weight.loc[date] = w_
-        
-        # Double Check for Equal Risk Contribution
         risk_cont.loc[date] = cal_risk_contribution(w_,np.array(cov_))
-        # Check for Mininum Sum of Squared Errors
-        sse.loc[date] = cal_sum_sq_error(w_,np.array(cov_))
-        
+        sse.loc[date] = cal_sum_sq_error(w_,np.array(cov_)) 
         
         k += 1
     
     # else: Everything is unchanged
     
-    # Calculate Daily Returns
+    # 7.3.4 Calculate Daily Returns
     ret1[date] = sum(w_*ret.loc[date]) # Risk-Parity
     ret2[date] = sum(np.squeeze(np.asarray(w_BlackRock))*ret.loc[date]) # 60/40
 
+    
 """
-8. Results
+8. Results Presentation
 """
 # 8.1 Check Optimization Results
 weight
@@ -407,7 +427,6 @@ sse
 
 # 8.2 Present Daily Returns & Net Values
 mkt_ret = price.IVV[all_dates[0]:].pct_change()
-
 port_rets = pd.DataFrame({'Risk Parity':ret1, '60/40': ret2, 'Market Index': mkt_ret}).dropna()
 net_value = np.cumprod(port_rets+1)
 
@@ -416,13 +435,6 @@ plt.figure(figsize=(8,4))
 net_value.plot()
 
 # 8.3 Back Test Parameters
-params = ['Sharpe Ratio','Annualized Return','Annualized Volatility','Beta','Max Drawdown','VaR']
-sharpe = cal_sharpe_ratio(port_rets)
-annl_ret = cal_ann_return(port_rets)
-annl_vol = cal_ann_vol(port_rets)
-beta = cal_market_beta(port_rets,'Market Index')
-max_drawdown = cal_max_drawdown(port_rets)
-VaR = cal_VaR(port_rets,0.05)
-backtest_table = pd.DataFrame([sharpe,annl_ret,annl_vol,beta, max_drawdown, VaR], index=params)
-
+BT = BackTest(port_rets,'Market Index',0.05)
+summ = BT.summary()
 

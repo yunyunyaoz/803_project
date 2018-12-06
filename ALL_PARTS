@@ -140,53 +140,62 @@ def port_40_60():
     return weight
     
 #--------------------------------------------- BackTest Functions --------------------------------------------------
+# ret: return of the portfolio
 
-from scipy.stats import norm
+#Calculate Annualized Return(Daily)
+def cal_ann_return(rets):
+    return np.mean(rets)*252
 
-#annualized return(monthly)
-def cal_ann_return(ret):
-    #ret the return of the portfolio
-    return np.mean(ret)*252
+# Calculate annualized volatility(Daily)
+def cal_ann_vol(rets):
+    return np.sqrt(np.var(rets)*252)
 
-#anualized volatility(monthly)
-def cal_ann_vol(ret):
-    # ret the return of the portfolio
-    return np.var(ret)*252
-
-#market beta(monthly)
-def cal_market_beta(ret,mtk):
-    # ret the return of the portfolio
-    # the market return under the same period
-    beta = np.cov(ret,mtk)/np.var(mtk)
-    return beta
+# Calculate Market Beta()
+def cal_market_beta(rets,mkt_ticker):
+    # mkt_ticker(string): tickerof market return under the same period as ret
+    
+    mkt_var = np.var(rets[mkt_ticker])
+    cov = pd.Series({symbol: rets[mkt_ticker].cov(rets[symbol]) for symbol in rets })
+    return cov/mkt_var
 
 #sharpe ratio
-def cal_sr(ret):
-    # ret the return of the portfolio
-    return np.mean(ret)/np.std(ret)*np.sqrt(252)
+def cal_sharpe_ratio(rets):
+    return np.mean(rets)/np.std(rets)*np.sqrt(252)
 
 #max_drawdown
-def cal_max_drawdown(ret):
-    # ret the return of the portfolio
-    net = np.cumprod(ret+1)
-    maxdraw = 0
-    for i in range(len(net)):
-        maxlocal = (min(net[i:])-net[i])/net[i]
-        if maxlocal < maxdraw:
-            maxdraw = maxlocal
+def cal_max_drawdown(rets):
+    
+    net_vals = np.cumprod(rets+1)
+    max_drawdown = []
+    
+    for col in list(net_vals):
+        net = net_vals[col]
+        maxdraw = 0
+        for i in range(len(net)):
+            maxlocal = (min(net[i:])-net[i])/net[i]
+            if maxlocal < maxdraw:
+                maxdraw = maxlocal
+        max_drawdown.append(maxdraw)
+        
+    return pd.Series(max_drawdown, index=rets.columns)
 
-    return maxdraw
 
-def cal_VaR(ret,a):
-    #ret is the return of the portfolio
+def cal_VaR(rets,a):
     #a is the significance of the VaR
-    mean = np.mean(ret)
-    std = np.std(ret)
+    mean = np.mean(rets)
+    std = np.std(rets)
     return  mean*252 - norm.ppf(1-a)*std*np.sqrt(252)
+
+
 
 
 #-------------------------------------------- Get Data & Parameters ------------------------------------------------
 # *********  Checked √   **********
+# Ideas:
+# Mean Var High Corr vs. Risk Parity 
+# Dummy ETF
+# 2011/11 - 2012/10 Risk Parity doesn't work very well
+
 
 """
 1.0 Initialization
@@ -200,34 +209,55 @@ from pandas_datareader import data as pdr      # For download data
 yf.pdr_override()
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
+from scipy.stats import norm
 
 """
 2.0 Get Raw Data
 """
-tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA','EEM']
+# 2.1 Parameters
+
+# Alphabetically Ordered Tickers & Weights
+tickers = ['BSV','EEM','EFA','EMB','IGIB','IJH','IJR','IVV','IXN','LQD','PDP','SHY','VTI']
+w_BlackRock = np.matrix([0.22,0.03,0.04,0.08,0.1,0.02,0.02,0.19,0.04,0.12,0.05,0.05,0.04])
+bonds = ['BSV','LQD','IGIB','SHY','EMB']
+
+# 2.1.1 Short Portfolio
+# bonds = ['BSV','LQD','IGIB','SHY','EMB']
+# tickers = ['BSV','EEM','EFA','EMB','IGIB','IVV','IXN','LQD','SHY']
+# w_BlackRock = np.matrix([0.22,0.03,0.04,0.08,0.1,0.02,0.02,0.19,0.04,0.12,0.05,0.05,0.04])
+
 st = datetime.datetime(2008,1,1)
 end = datetime.datetime(2015,10,31)
-
 num = len(tickers)
+Ndays = 252
 
+# 2.2 Download Data
+print('***Downloading data.***')
+price = pdr.get_data_yahoo(tickers, start=st, end=end) ["Adj Close"]
+ret = price.pct_change().dropna()
+
+# 2.2.1 Read Same Data In
+"""
 try:
     ret = pd.read_csv('ret.csv',index_col=0)
     price = pd.read_csv('price.csv',index_col=0)
     ret.index = pd.to_datetime(ret.index)
     price.index = pd.to_datetime(price.index)
     print('***Data exist.***')
+
 except:
     print('***Downloading data.***')
-        # tickers = ['BSV','LQD','IGIB','SHY','IVV','PDP','IXN','IJH', 'IJR','EMB','EFA']
-
     price = pdr.get_data_yahoo(tickers, start=st, end=end) ["Adj Close"]
     ret = price.pct_change().dropna()
     
-    #--------------SAVING DATA------------------------
+    # Saving Data
     print('***Saving Data.***')
     ret.to_csv('ret.csv')
     price.to_csv('price.csv')
+"""
 
+
+    
 """
 3.0 Data Cleaning
 """
@@ -266,7 +296,6 @@ mu = np.mean(ret)*252  # Annualized Mean Returns
 vol = np.std(ret)*np.sqrt(252)  # Annualized Volatilities
 
 # 5.2 Plots:
-bonds = ['BSV','LQD','IGIB','SHY','EMB']
 color= ['orange' if ETF in bonds else 'skyblue' for ETF in ret.columns]
 plt.scatter(ret.columns, vol, color=color)
 plt.title('Annualized Volatility for Stock & Bond ETFs')
@@ -305,8 +334,6 @@ print('\nCorrelation Matrix of Portfolio: \n',corrMat)
 7. Calculate Optimal Portolio Weights/Positions
 """
 # 7.1 Initialize Parameters
-Ndays = 252
-w_BlackRock = np.matrix([0.22,0.12,0.1,0.05,0.20,0.05,0.05,0.03,0.03,0.08,0.04,0.03])
 
 
 # 7.2 Get 1-Yr-Rolling Portfolio Covariance Matrices
@@ -368,13 +395,13 @@ for i in range(0,len(toID)):
     ret1[date] = sum(w_*ret.loc[date]) # Risk-Parity
     ret2[date] = sum(np.squeeze(np.asarray(w_BlackRock))*ret.loc[date]) # 60/40
 
-
 # 7.5 Check Results
 weight
 risk_cont
 sse
 
 ret3 = price.IVV[all_dates[0]:].pct_change()
+
 port_rets = pd.DataFrame({'Risk Parity':ret1, '60/40': ret2, 'Market Index': ret3}).dropna()
 net_value = np.cumprod(port_rets+1)
 
@@ -382,13 +409,13 @@ plt.figure(figsize=(8,4))
 net_value.plot()
 
 ######
-items = ['Sharpe Ratio','Annualized Return','Annualized Volatility','VaR']
-sharpe = port_rets.mean()/port_rets.std()*np.sqrt(250)
+items = ['Sharpe Ratio','Annualized Return','Annualized Volatility','Beta','Max Drawdown','VaR']
+sharpe = cal_sharpe_ratio(port_rets)
 annl_ret = cal_ann_return(port_rets)
 annl_vol = cal_ann_vol(port_rets)
-#market_beta = [cal_market_beta(ret1),cal_market_beta(ret2)]
-#max_drawdown = cal_max_drawdown(port_rets)
+beta = cal_market_beta(port_rets,'Market Index')
+max_drawdown = cal_max_drawdown(port_rets)
 VaR = cal_VaR(port_rets,0.05)
-backtest_table = pd.DataFrame([sharpe,annl_ret,annl_vol,VaR],index=items,)
+backtest_table = pd.DataFrame([sharpe,annl_ret,annl_vol,beta, max_drawdown, VaR],index=items)
 
 

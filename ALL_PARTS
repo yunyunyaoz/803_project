@@ -252,10 +252,10 @@ w_BlackRock = np.matrix([0.25,0.03,0.04,0.08,0.15,0.24,0.04,0.12,0.05])
 
 
 
-st = datetime.datetime(2008,1,1)
-end = datetime.datetime(2015,10,31)
+st = datetime.datetime(2013,1,1)
+end = datetime.datetime(2015,12,31)
 num = len(tickers)
-Ndays = 252
+Ndays = 250
 
 # 2.2 Download Data
 print('***Downloading data.***')
@@ -318,8 +318,8 @@ plt.show()
 5. Properties of Data
 """
 # 5.1 Mean & Volatility
-mu = np.mean(ret)*252  # Annualized Mean Returns
-vol = np.std(ret)*np.sqrt(252)  # Annualized Volatilities
+mu = np.mean(ret)*Ndays  # Annualized Mean Returns
+vol = np.std(ret)*np.sqrt(Ndays)  # Annualized Volatilities
 
 # 5.2 Plots:
 color= ['orange' if ETF in bonds else 'skyblue' for ETF in ret.columns]
@@ -332,8 +332,8 @@ n_levg = 3
 ret[bonds] *= n_levg 
 
 # 5.4 Leveraged Mean & Volatility
-mu_levg = np.mean(ret)*252  # Annualized Mean Returns(After leverage)
-vol_levg = np.std(ret)*np.sqrt(252)  # Annualized Volatilities(After leverage)
+mu_levg = np.mean(ret)*Ndays  # Annualized Mean Returns(After leverage)
+vol_levg = np.std(ret)*np.sqrt(Ndays)  # Annualized Volatilities(After leverage)
 
 plt.scatter(ret.columns, vol_levg, color=color)
 plt.title('Annualized Volatility for Stock & Leveraged Bond ETFs')
@@ -394,6 +394,8 @@ risk_cont = pd.DataFrame(columns = ret.columns) # Risk Parity Portfolio Risk Con
 sse = pd.DataFrame(columns =['SUM Sq Error']) # Risk Parity Portfolio Optimization Sum of Squared Errors
 mu_risk = pd.Series()
 exp_ret = 0.1
+w_ = np.squeeze(np.asarray(w_BlackRock))
+w_muVar = np.ones(num)/num
 
 k = 0 
 for i in range(0,len(toID)):
@@ -441,8 +443,8 @@ risk_cont
 sse
 
 # 8.2 Present Daily Returns & Net Values
-mkt_ret = price.IVV[all_dates[0]:].pct_change()
-port_rets = pd.DataFrame({'Risk Parity':ret1, '60/40': ret2,'Mean Var': ret3, 'Market Index': mkt_ret}).dropna()
+mkt_ret = price.IVV[all_dates[1]:].pct_change()
+port_rets = pd.DataFrame({'Risk Parity':ret1, 'Mean Var': ret3, 'Market Index': mkt_ret}).dropna()
 net_value = np.cumprod(port_rets+1)
 
 # Net Value Plot:

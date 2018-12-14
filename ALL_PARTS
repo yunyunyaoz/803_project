@@ -246,7 +246,8 @@ import scipy.optimize as opt
 
 # 2.1.1 Short Portfolio
 bonds = ['BSV','LQD','IGIB','EMB']
-tickers = ['BSV','EEM','EFA','EMB','IGIB','IVV','IXN','LQD','PDP']
+tickers = ['BSV','LQD','IGIB','IVV','PDP','IXN','EMB','IJH','IJR']
+
 w_BlackRock = np.matrix([0.25,0.03,0.04,0.08,0.15,0.24,0.04,0.12,0.05])
 # sum(w_BlackRock) # weights check
 

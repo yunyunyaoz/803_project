@@ -388,9 +388,12 @@ if sum(toID)!=len(cov_dates):
 # 7.3.1 Initialize Some Variables to Store Results
 ret1 = pd.Series() # Risk Parity Portfolio Returns
 ret2 = pd.Series() # 60/40 Portfolio Returns
+ret3 = pd.Series()
 weight = pd.DataFrame(columns = ret.columns) # Risk Parity Portfolio Weights
 risk_cont = pd.DataFrame(columns = ret.columns) # Risk Parity Portfolio Risk Contributions
 sse = pd.DataFrame(columns =['SUM Sq Error']) # Risk Parity Portfolio Optimization Sum of Squared Errors
+mu_risk = pd.Series()
+exp_ret = 0.1
 
 k = 0 
 for i in range(0,len(toID)):

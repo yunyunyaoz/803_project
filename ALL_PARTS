@@ -398,16 +398,28 @@ for i in range(0,len(toID)):
 
     if toID[i]==True: # Signal for 调仓
         
+        
+        # Current Covariance Matrix
+        cov_ = np.matrix(month_covMats.loc[cov_dates[k]])*Ndays # Checked √
+        
+        # Mean Variance
+        mu_ret = ret.rolling(Ndays).mean().loc[date]*Ndays
+        w_muVar = mean_variance(mu_ret,exp_ret,cov_)
+        
         # 7.3.2 Calculate Portfolio Weights for Current Month:
-        cov_ = np.matrix(month_covMats.loc[cov_dates[k]]) # Checked √
-        sigma_ = float(np.sqrt(w_BlackRock*cov_*w_BlackRock.T)) # Checked √
+        
+        #sigma_ = float(np.sqrt(w_BlackRock*cov_*w_BlackRock.T)) # Checked √
+        sigma_ = float(np.sqrt(np.asmatrix(w_muVar)*cov_*np.asmatrix(w_muVar).T))
         w_ = risk_parity(sigma_,np.array(cov_)) # Checked √
+        
         
         # 7.3.3 Store Results
         weight.loc[date] = w_
         risk_cont.loc[date] = cal_risk_contribution(w_,np.array(cov_))
         sse.loc[date] = cal_sum_sq_error(w_,np.array(cov_)) 
         
+        
+        mu_risk.loc[date] =  cal_risk_contribution(w_muVar,np.array(cov_))
         k += 1
     
     # else: Everything is unchanged
@@ -415,7 +427,7 @@ for i in range(0,len(toID)):
     # 7.3.4 Calculate Daily Returns
     ret1[date] = sum(w_*ret.loc[date]) # Risk-Parity
     ret2[date] = sum(np.squeeze(np.asarray(w_BlackRock))*ret.loc[date]) # 60/40
-
+    ret3[date] = sum(w_muVar*ret.loc[date])
     
 """
 8. Results Presentation
@@ -427,7 +439,7 @@ sse
 
 # 8.2 Present Daily Returns & Net Values
 mkt_ret = price.IVV[all_dates[0]:].pct_change()
-port_rets = pd.DataFrame({'Risk Parity':ret1, '60/40': ret2, 'Market Index': mkt_ret}).dropna()
+port_rets = pd.DataFrame({'Risk Parity':ret1, '60/40': ret2,'Mean Var': ret3, 'Market Index': mkt_ret}).dropna()
 net_value = np.cumprod(port_rets+1)
 
 # Net Value Plot:
@@ -437,4 +449,3 @@ net_value.plot()
 # 8.3 Back Test Parameters
 BT = BackTest(port_rets,'Market Index',0.05)
 summ = BT.summary()
-

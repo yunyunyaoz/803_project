@@ -26,7 +26,7 @@ def cal_sum_sq_error(weights,cov_matrix): # sum squard error bewteen target rc(a
 def risk_parity(target_sigma, cov_matrix):
 
     def cal_portfolio_weight():
-        initial_weight=np.ones(len(cov_matrix))
+        initial_weight=np.ones(len(cov_matrix))/len(cov_matrix)
     
         cons=({'type': 'eq', 'fun': constraint1},{'type': 'eq', 'fun': constraint2})
         res = opt.minimize(sum_sq_error, initial_weight, method='SLSQP',constraints=cons)

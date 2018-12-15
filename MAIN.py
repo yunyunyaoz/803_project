@@ -31,7 +31,7 @@ w_BlackRock = [0.25,0.03,0.04,0.08,0.15,0.24,0.04,0.12,0.05]
 # sum(w_BlackRock) # weights check
 
 st = datetime.datetime(2008,1,1) # Start Time
-end = datetime.datetime(2015,12,31) # End Time
+end = datetime.datetime(2015,10,31) # End Time
 num = len(tickers)
 Ndays = 252 # Number of days a year
 

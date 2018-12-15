@@ -65,25 +65,14 @@ plt.show()
 mu = np.mean(ret)*Ndays  # Annualized Mean Returns
 vol = np.std(ret)*np.sqrt(Ndays)  # Annualized Volatilities
 
-# 5.2 Plots:
-color= ['orange' if ETF in bonds else 'skyblue' for ETF in ret.columns]
-# Visualization
-plt.scatter(ret.columns, vol, color=color)
-plt.title('Annualized Volatility for Stock & Bond ETFs')
-plt.show()
-
-# 5.3 Leverage Bonds
+# 5.2 Leverage Bonds
 n_levg = 3
 ret[bonds] *= n_levg 
 
-# 5.4 Leveraged Mean & Volatility
+# 5.3 Leveraged Mean & Volatility
 mu_levg = np.mean(ret)*Ndays  # Annualized Mean Returns(After leverage)
 vol_levg = np.std(ret)*np.sqrt(Ndays)  # Annualized Volatilities(After leverage)
 
-# Visualization
-plt.scatter(ret.columns, vol_levg, color=color)
-plt.title('Annualized Volatility for Stock & Leveraged Bond ETFs')
-plt.show()
 
 
 """

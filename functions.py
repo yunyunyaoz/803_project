@@ -8,8 +8,11 @@ Created on Fri Dec 14 21:24:56 2018
 
 #-------------------------------------------Functions (RuiHao) ---------------------------------------------------
 def GetPrice(tickers,start,end):
+
+    import pandas as pd
+    pd.core.common.is_list_like = pd.api.types.is_list_like
+    from pandas_datareader import data as pdr
     import fix_yahoo_finance as yf
-    from pandas_datareader import data as pdr  
     yf.pdr_override()
     
     print('***Downloading data.***')
